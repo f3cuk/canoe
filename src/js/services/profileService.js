@@ -415,156 +415,19 @@ angular.module('canoeApp.services')
       nanoService.saveWallet(root.getWallet(), cb)
     }
 
-    root.getNotifications = function (opts, cb) {
-      opts = opts || {}
-
-      var TIME_STAMP = 60 * 60 * 6
-      var MAX = 30
-
-      var typeFilter = {
-        'NewOutgoingTx': 1,
-        'NewIncomingTx': 1
-      }
-
-      var w = root.getAccounts()
-      if (lodash.isEmpty(w)) return cb()
-
-      var l = w.length,
-        j = 0,
-        notifications = []
-
-      function isActivityCached (wallet) {
-        return wallet.cachedActivity && wallet.cachedActivity.isValid
-      };
-
-      function updateNotifications (wallet, cb2) {
-        if (isActivityCached(wallet) && !opts.force) return cb2()
-        // TODO
-/*        wallet.getNotifications({
-          timeSpan: TIME_STAMP,
-          includeOwn: true
-        }, function (err, n) {
-          if (err) return cb2(err)
-
-          wallet.cachedActivity = {
-            n: n.slice(-MAX),
-            isValid: true
-          }
-
-          return cb2()
-        }) */
-      };
-
-      function process (notifications) {
-        if (!notifications) return []
-
-        var shown = lodash.sortBy(notifications, 'createdOn').reverse()
-
-        shown = shown.splice(0, opts.limit || MAX)
-
-        lodash.each(shown, function (x) {
-          x.txpId = x.data ? x.data.txProposalId : null
-          x.txid = x.data ? x.data.txid : null
-          x.types = [x.type]
-
-          if (x.data && x.data.amount) { x.amountStr = txFormatService.formatAmountStr(x.wallet.coin, x.data.amount) }
-
-          x.action = function () {
-            // TODO?
-            // $state.go('tabs.account', {
-            //   walletId: x.walletId,
-            //   txpId: x.txpId,
-            //   txid: x.txid,
-            // });
-          }
-        })
-
-        var finale = shown // GROUPING DISABLED!
-
-        var finale = [],
-          prev
-
-        // Item grouping... DISABLED.
-
-        // REMOVE (if we want 1-to-1 notification) ????
-        lodash.each(shown, function (x) {
-          if (prev && prev.walletId === x.walletId && prev.txpId && prev.txpId === x.txpId && prev.creatorId && prev.creatorId === x.creatorId) {
-            prev.types.push(x.type)
-            prev.data = lodash.assign(prev.data, x.data)
-            prev.txid = prev.txid || x.txid
-            prev.amountStr = prev.amountStr || x.amountStr
-            prev.creatorName = prev.creatorName || x.creatorName
-          } else {
-            finale.push(x)
-            prev = x
-          }
-        })
-
-        // var u = bwcService.getUtils()
-        lodash.each(finale, function (x) {
-          if (x.data && x.data.message && x.wallet && x.wallet.credentials.sharedEncryptingKey) {
-            // TODO TODO TODO => BWC
-            x.message = u.decryptMessage(x.data.message, x.wallet.credentials.sharedEncryptingKey)
-          }
-        })
-
-        return finale
-      };
-
-      lodash.each(w, function (wallet) {
-        updateNotifications(wallet, function (err) {
-          j++
-          if (err) {
-            $log.warn('Error updating notifications:' + err)
-          } else {
-            var n
-
-            n = lodash.filter(wallet.cachedActivity.n, function (x) {
-              return typeFilter[x.type]
-            })
-
-            var idToName = {}
-            if (wallet.cachedStatus) {
-              lodash.each(wallet.cachedStatus.wallet.canoeers, function (c) {
-                idToName[c.id] = c.name
-              })
-            }
-
-            lodash.each(n, function (x) {
-              x.wallet = wallet
-              if (x.creatorId && wallet.cachedStatus) {
-                x.creatorName = idToName[x.creatorId]
-              };
-            })
-
-            notifications.push(n)
-          }
-          if (j === l) {
-            notifications = lodash.sortBy(notifications, 'createdOn')
-            notifications = lodash.compact(lodash.flatten(notifications)).slice(0, MAX)
-            var total = notifications.length
-            return cb(null, process(notifications), total)
-          };
-        })
+    root.getLastTransactions = function (max, cb) {
+      var limit = max || 30
+      var accounts = root.getAccounts()
+      if (lodash.isEmpty(accounts)) return cb()
+      var all = []
+      lodash.each(accounts, function (account) {
+        var txs = root.getTxHistory(account.id)
+        all.push(txs)
       })
-    }
-
-    root.getTxps = function (opts, cb) {
-      var MAX = 100
-      opts = opts || {}
-
-      var w = root.getAccounts()
-      if (lodash.isEmpty(w)) return cb()
-
-      var txps = []
-
-      lodash.each(w, function (x) {
-        if (x.pendingTxps) { txps = txps.concat(x.pendingTxps) }
-      })
-      var n = txps.length
-      txps = lodash.sortBy(txps, 'pendingForUs', 'createdOn')
-      txps = lodash.compact(lodash.flatten(txps)).slice(0, opts.limit || MAX)
-      return cb(null, txps, n)
+      all = lodash.sortBy(lodash.flatten(all), 'time').reverse()
+      var shown = all.splice(0, limit)
+      lodash.each(shown, function (tx) { tx.time = new Date(tx.time) })
+      cb(null, shown, shown.length)
     }
 
     return root

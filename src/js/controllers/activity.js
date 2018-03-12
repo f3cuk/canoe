@@ -6,7 +6,7 @@ angular.module('canoeApp.controllers').controller('activityController',
     $scope.fetchingNotifications = true
 
     $scope.$on('$ionicView.enter', function (event, data) {
-      profileService.getNotifications(50, function (err, n) {
+      profileService.getLastTransactions(50, function (err, n) {
         if (err) {
           $log.error(err)
           return

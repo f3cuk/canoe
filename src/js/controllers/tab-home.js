@@ -4,7 +4,7 @@ angular.module('canoeApp.controllers').controller('tabHomeController',
   function ($rootScope, $timeout, $interval, $scope, $state, $stateParams, $ionicModal, $ionicScrollDelegate, $window, gettextCatalog, lodash, popupService, ongoingProcess, externalLinkService, latestReleaseService, profileService, walletService, configService, $log, platformInfo, storageService, txpModalService, appConfigService, startupService, addressbookService, feedbackService, buyAndSellService, homeIntegrationsService, pushNotificationsService, timeService) {
     var wallet
     var listeners = []
-    var notifications = []
+    $scope.txs = null
     $scope.externalServices = {}
     $scope.openTxpModal = txpModalService.open
     $scope.version = $window.version
@@ -97,7 +97,7 @@ angular.module('canoeApp.controllers').controller('tabHomeController',
           $scope.accounts = profileService.getAccounts()
           // $log.debug('Accounts: ' + JSON.stringify($scope.accounts))
           if ($scope.recentTransactionsEnabled) {
-            getNotifications()
+            getRecentTransactions()
           }
         }),
         $rootScope.$on('blocks', function (event, account) {
@@ -106,10 +106,10 @@ angular.module('canoeApp.controllers').controller('tabHomeController',
             $scope.accounts = profileService.getAccounts()
           } else {
             $log.debug('Got action for ' + account)
-            //profileService.updateAccount(account)
+            // profileService.updateAccount(account)
           }
           if ($scope.recentTransactionsEnabled) {
-            getNotifications()
+            getRecentTransactions()
           }
           $timeout(function () {
             $scope.$apply()
@@ -122,9 +122,9 @@ angular.module('canoeApp.controllers').controller('tabHomeController',
 
       configService.whenAvailable(function (config) {
         $scope.recentTransactionsEnabled = config.recentTransactions.enabled
-        if ($scope.recentTransactionsEnabled) getNotifications()
+        if ($scope.recentTransactionsEnabled) getRecentTransactions()
 
-        pushNotificationsService.init()
+        // pushNotificationsService.init()
 
         $timeout(function () {
           $ionicScrollDelegate.resize()
@@ -226,16 +226,14 @@ angular.module('canoeApp.controllers').controller('tabHomeController',
     }
 */
 
-    var getNotifications = function () {
-      profileService.getNotifications({
-        limit: 3
-      }, function (err, notifications, total) {
+    var getRecentTransactions = function () {
+      profileService.getLastTransactions(3, function (err, txs, total) {
         if (err) {
           $log.error(err)
           return
         }
-        $scope.notifications = notifications
-        $scope.notificationsN = total
+        $scope.txs = txs
+        $scope.txsN = total
         $timeout(function () {
           $ionicScrollDelegate.resize()
           $scope.$apply()
